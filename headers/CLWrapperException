@@ -1,0 +1,29 @@
+// -*-c++-*-
+/**
+ * File     : CLWrapperException
+ * Contents : Contains class defs for CLWrapperException
+ */
+ 
+
+#ifndef ODROID_CL_CL_WRAPPER_EXCEPTION
+#define ODROID_CL_CL_WRAPPER_EXCEPTION
+
+namespace OdroidXU4
+{
+    class CLWrapperException
+    {
+        private :
+            std::string message ;
+        public :
+            CLWrapperException(std::string message)
+            {
+                this -> message = message ;
+            }
+            std::string getMessage()
+            {
+                return message ;
+            }
+    } ;
+}
+
+#endif

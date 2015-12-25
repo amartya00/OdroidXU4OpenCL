@@ -1,0 +1,52 @@
+// -*-c++-*-
+/**
+ * File     : CLBuffer
+ * Contents : Contains classes for CLBuffer
+ */
+
+ #ifndef ODROID_CL_CL_BUFFER
+ #define ODROID_CL_CL_BUFFER
+namespace OdroidXU4
+{
+    template <typename T, cl_mem_flags F> class CLBuffer
+    {
+        private:
+            cl::Buffer buffer ;
+            size_t numel ;
+            void *hostPtr ;
+            cl::CommandQueue q ;
+        public:
+            CLBuffer(cl::Context, cl::CommandQueue q, size_t, void*) ;
+            void flushWriteBuffer() ;
+            void getReadBuffer() ;
+            cl::Buffer& getBuffer() { return buffer; }
+    };
+    
+    /*
+     * CLBuffer function definitions:
+     * [1] CLBuffer(cl::Context, cl::CommandQueue, size_t, void*)
+     * [2] flushWriteBuffer()
+     * [3] getReadBuffer()
+     */
+    template <typename T, cl_mem_flags F> CLBuffer<T, F>::CLBuffer(cl::Context context, cl::CommandQueue q, size_t numel, void *hostPtr)
+    {
+        this->numel = numel ;
+        this->buffer = cl::Buffer(context, F, sizeof(T) * numel) ;
+        this->hostPtr = hostPtr ;
+        this->q = q ;
+    }
+    
+    template <typename T, cl_mem_flags F> void CLBuffer<T, F>::flushWriteBuffer()
+    {
+        if (F == CL_MEM_WRITE_ONLY) {
+            throw CLWrapperException("Attempted to flush a write only buffer for reading") ;
+        }
+        q.enqueueWriteBuffer(buffer, CL_TRUE, 0, sizeof(T) * numel, hostPtr) ;
+    }
+
+    template <typename T, cl_mem_flags F> void CLBuffer<T, F>::getReadBuffer()
+    {
+        q.enqueueReadBuffer(buffer, CL_TRUE, 0, sizeof(int) * numel, hostPtr) ;
+    }
+ }   
+ #endif
