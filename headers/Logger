@@ -1,0 +1,93 @@
+// -*-c++-*-
+/**
+ * File     : Logger
+ * Contents : Logging utility class declarations
+ */
+
+#ifndef ODROID_CL_LOGGER
+#define ODROID_CL_LOGGER
+
+#include <iostream>
+#include <string>
+#include <fstream>
+
+namespace OdroidXU4
+{
+	enum class LogLevel
+	{
+		WARN,
+		INFO,
+	    ERROR
+	} ;
+
+	class LoggerException
+	{
+	    private:
+		    std::string message ;
+  	    public:
+		    LoggerException(std::string message)
+		    {
+				this -> message = message ;
+		    }
+		    std::string getMessage()
+		    {
+			    return message ;
+		    }
+	} ;
+
+	class Logger
+	{
+	    private:
+		    std::string logFile ;
+		    std::ofstream logObj ;
+	    public:
+		    Logger()
+		    {
+		    }
+		    Logger(std::string) ;
+    		~Logger() ;
+		    void setLogFile(std::string) ;
+    		void log(LogLevel, std::string) ;
+	} ;
+
+		Logger::Logger(std::string logFile)
+	{
+		this -> logFile = logFile ;
+		logObj.open(logFile, std::ofstream::app) ;
+		if (!logObj.is_open()) {
+			throw LoggerException("Could not open log file " + logFile) ;
+		}
+	}
+
+	Logger::~Logger()
+	{
+		logObj.close() ;
+	}
+
+	void Logger::setLogFile(std::string logFile)
+	{
+		this -> logFile = logFile ;
+		logObj.open(logFile, std::ofstream::app) ;
+		if (!logObj.is_open()) {
+			throw LoggerException("Could not open log file " + logFile) ;
+		}
+	}
+
+	void Logger::log(LogLevel sev, std::string message)
+	{
+		if (!logObj.is_open()) {
+			throw LoggerException("Log file closed unexpectedly") ;
+		}
+		switch (sev) {
+		    case LogLevel::INFO :
+				logObj << "[INFO] " << message << "\n" ; break ;
+		    case LogLevel::WARN :
+				logObj << "[WARN] " << message << "\n" ; break ;
+			case LogLevel::ERROR :
+				logObj << "[ERROR] " << message << "\n" ; break ;
+		}
+	}
+}
+
+#endif
+ 

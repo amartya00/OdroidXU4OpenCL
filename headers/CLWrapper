@@ -1,0 +1,537 @@
+// -*-c++-*-
+/**
+ * File     : CLWrapper
+ * Contents : Contains class prototypes for:
+ *             CLWrapper, LOG and CLWrapperException
+ */
+
+#ifndef ODROID_CL_CL_WRAPPER
+#define ODROID_CL_CL_WRAPPER
+
+#include "Logger" 
+#include "cl.hpp"
+
+#include <string>
+#include <fstream>
+#include <vector>
+#include <cstdlib>
+#include <iostream>
+
+
+namespace OdroidXU4
+{ 
+    /*
+     * Class definitions
+     * [1] CLBuffer
+     * [2] CLWrapperException
+     * [3] CLWrapper
+     */
+    
+    class NullType
+    {
+    };
+  
+    template <typename T, cl_mem_flags F> class CLBuffer
+    {
+        private:
+            cl::Buffer buffer ;
+            size_t numel ;
+            void *hostPtr ;
+            cl::CommandQueue q ;
+        public:
+            CLBuffer(cl::Context, cl::CommandQueue q, size_t, void*) ;
+            void flushWriteBuffer() ;
+            void getReadBuffer() ;
+            cl::Buffer& getBuffer() { return buffer; }
+    };
+
+    template <unsigned int x            , unsigned int y            , unsigned int z            ,
+              typename     T0           , typename     T1 = NullType, typename     T2 = NullType,
+              typename     T3 = NullType, typename     T4 = NullType, typename     T5 = NullType,
+              typename     T6 = NullType, typename     T7 = NullType, typename     T8 = NullType,
+              typename     T9 = NullType>
+    class KernelExecutor
+    {
+        private:
+            cl::Program program ;
+            std::string kernelName ;
+            cl::CommandQueue commQueue ;
+        public:
+            KernelExecutor(cl::Program, std::string, cl::CommandQueue) ;
+            void operator () (T0) ;
+            void operator () (T0, T1) ;
+            void operator () (T0, T1, T2) ;
+            void operator () (T0, T1, T2, T3) ;
+            void operator () (T0, T1, T2, T3, T4) ;
+            void operator () (T0, T1, T2, T3, T4, T5) ;
+            void operator () (T0, T1, T2, T3, T4, T5, T6) ;
+            void operator () (T0, T1, T2, T3, T4, T5, T6, T7) ;
+            void operator () (T0, T1, T2, T3, T4, T5, T6, T7, T8) ;
+            void operator () (T0, T1, T2, T3, T4, T5, T6, T7, T8, T9) ;
+
+    } ;
+    
+    class CLWrapperException
+    {
+        private :
+            std::string message ;
+        public :
+            CLWrapperException(std::string message)
+            {
+                this -> message = message ;
+            }
+            std::string getMessage()
+            {
+                return message ;
+            }
+    } ;
+
+    class CLWrapper
+    {
+        private :
+            Logger logger ;
+             std::string buffer ;
+            cl::Platform platform ;
+            cl::Device bigGPU ;
+            cl::Device smallGPU ;
+            cl::Context context ;
+            cl::Program program ;
+            cl::CommandQueue bigGPUQueue ;
+            cl::CommandQueue smallGPUQueue ;
+
+            void getPlatform() ;
+            void getDevices() ;
+            void prepareCommQueue() ;
+            void prepareProgram(std::vector <std::string>) ;
+            void prepareProgram(std::string) ;
+        
+        public :
+            CLWrapper() { }
+            CLWrapper(std::vector <std::string>, std::string) ;
+            CLWrapper(std::string, std::string) ;
+            void setup(std::vector <std::string>, std::string)  ;
+            void setup(std::string, std::string)  ;
+    
+            cl::Context getContext() { return context ; } 
+            cl::Program getProgObj() { return program ; } 
+            cl::CommandQueue getBigCommQueue() { return bigGPUQueue ; }
+            cl::CommandQueue getSmallCommQueue() { return smallGPUQueue ; } 
+            template <typename T, cl_mem_flags F> CLBuffer<T, F> getBigBuffer(void *, size_t) ;
+            template <typename T, cl_mem_flags F> CLBuffer<T, F> getSmallBuffer(void *, size_t) ;
+            
+            template <unsigned int x            , unsigned int y            , unsigned int z            ,
+                      typename     T0           , typename     T1 = NullType, typename     T2 = NullType,
+                      typename     T3 = NullType, typename     T4 = NullType, typename     T5 = NullType,
+                      typename     T6 = NullType, typename     T7 = NullType, typename     T8 = NullType,
+                      typename     T9 = NullType> 
+            KernelExecutor<x, y, z, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9> getKernelExecutorBig(std::string kernelName)
+            {
+                return KernelExecutor<x, y, z, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>(program, kernelName, bigGPUQueue) ;
+            }
+            
+            template <unsigned int x            , unsigned int y            , unsigned int z            ,
+                      typename     T0           , typename     T1 = NullType, typename     T2 = NullType,
+                      typename     T3 = NullType, typename     T4 = NullType, typename     T5 = NullType,
+                      typename     T6 = NullType, typename     T7 = NullType, typename     T8 = NullType,
+                      typename     T9 = NullType> 
+            KernelExecutor<x, y, z, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9> getKernelExecutorSmall(std::string kernelName)
+            {
+                return KernelExecutor<x, y, z, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>(program, kernelName, smallGPUQueue) ;
+            }
+    } ;
+
+    
+    /*
+     * CLBuffer function definitions:
+     * [1] CLBuffer(cl::Context, cl::CommandQueue, size_t, void*)
+     * [2] flushWriteBuffer()
+     * [3] getReadBuffer()
+     */
+    template <typename T, cl_mem_flags F> CLBuffer<T, F>::CLBuffer(cl::Context context, cl::CommandQueue q, size_t numel, void *hostPtr)
+    {
+        this->numel = numel ;
+        this->buffer = cl::Buffer(context, F, sizeof(T) * numel) ;
+        this->hostPtr = hostPtr ;
+        this->q = q ;
+    }
+    
+    template <typename T, cl_mem_flags F> void CLBuffer<T, F>::flushWriteBuffer()
+    {
+        if (F == CL_MEM_WRITE_ONLY) {
+            throw CLWrapperException("Attempted to flush a write only buffer for reading") ;
+        }
+        q.enqueueWriteBuffer(buffer, CL_TRUE, 0, sizeof(T) * numel, hostPtr) ;
+    }
+
+    template <typename T, cl_mem_flags F> void CLBuffer<T, F>::getReadBuffer()
+    {
+        q.enqueueReadBuffer(buffer, CL_TRUE, 0, sizeof(int) * numel, hostPtr) ;
+    }
+
+    /*
+     * CLWrapper funtion definitions:
+     ** Private **
+     * [1 ] void getPlatform()
+     * [2 ] void getDevices()
+     * [3 ] void prepareCommQueue()
+     * [4 ] void prepareProgram(std::vector <std::string>)
+     * [5 ] void prepareProgram(std::string)
+     ** Public **
+     * [6 ] CLWrapper() { }
+     * [7 ] CLWrapper(std::vector <std::string>, std::string)
+     * [8 ] CLWrapper(std::string, std::string)
+     * [9 ] void setup(std::vector <std::string>, std::string)
+     * [10] void setup(std::string, std::string)
+     * [11] cl::Context getContext()
+     * [12] cl::Program getProgObj()
+     * [13] cl::CommandQueue getBigCommQueue()
+     * [14] cl::CommandQueue getSmallCommQueue()
+     * [15] template <typename T, cl_mem_flags F> CLBuffer<T, F> getBigBuffer(void *hostPtr, size_t size) 
+     * [16] template <typename T, cl_mem_flags F> CLBuffer<T, F> getSmallBuffer(void *hostPtr, size_t size) 
+     * [17] template <...> KernelExecutor<...> getKernelExecutorBig(std::string)
+     */
+    CLWrapper::CLWrapper(std::vector <std::string> files, std::string log)
+    {
+        logger.setLogFile(log) ;
+        getPlatform() ;
+        getDevices() ;
+        prepareCommQueue() ;
+        prepareProgram(files) ;
+    }
+
+    CLWrapper::CLWrapper(std::string buffer, std::string log)
+    {
+        logger.setLogFile(log) ;
+        getPlatform() ;
+        getDevices() ;
+        prepareCommQueue() ;
+        prepareProgram(buffer) ;
+    }
+    
+    void CLWrapper::setup(std::vector <std::string> files, std::string log)
+    {
+        logger.setLogFile(log) ;
+        getPlatform() ;
+        getDevices() ;
+        prepareCommQueue() ;
+        prepareProgram(files) ;
+    }
+
+    void CLWrapper::setup(std::string buffer, std::string log)
+    {
+        logger.setLogFile(log) ;
+        getPlatform() ;
+        getDevices() ;
+        prepareCommQueue() ;
+        prepareProgram(buffer) ;
+    }
+    
+    void CLWrapper::getPlatform()
+    {
+        logger.log(LogLevel::INFO, "Attempting to get platform") ;
+        std::vector<cl::Platform>  platforms ;
+        cl_int errNum = cl::Platform::get(&platforms) ;
+        if (errNum != CL_SUCCESS || platforms.size() <= 0) {
+            logger.log(LogLevel::ERROR, "Could not retrieve platforms") ;       
+            throw CLWrapperException("Could not retrieve platforms") ;
+        }
+        logger.log(LogLevel::INFO, "Obtained platform") ;
+        platform = platforms[0] ;
+        logger.log(LogLevel::INFO, "Default : Platorm name string: " +platform.getInfo<CL_PLATFORM_NAME>()) ;
+        logger.log(LogLevel::INFO, "Default : Platorm vendor string: " +platform.getInfo<CL_PLATFORM_VENDOR>()) ;
+        logger.log(LogLevel::INFO, "Default : Platorm profile string: " +platform.getInfo<CL_PLATFORM_PROFILE>()) ;
+    }
+
+    void CLWrapper::getDevices()
+    {
+        logger.log(LogLevel::INFO, "Attempting to get devices") ;
+        std::vector <cl::Device> allDevices ;
+        cl_int errNum = platform.getDevices(CL_DEVICE_TYPE_GPU, &allDevices) ;
+        if (errNum != CL_SUCCESS || allDevices.size() < 2) {
+            logger.log(LogLevel::ERROR, "Could not obtain both GPUs") ;
+            throw CLWrapperException("Could not obtain both GPUs") ;
+        }
+        if (allDevices[0].getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() == 4) {
+            bigGPU = allDevices[0] ;
+            smallGPU = allDevices[1] ;
+        } else {
+            bigGPU = allDevices[1] ;
+            smallGPU = allDevices[0] ;
+        }
+        logger.log(LogLevel::INFO, "Obtained both GPUs") ;
+        context = cl::Context({bigGPU, smallGPU}) ;
+    }
+
+    void CLWrapper::prepareCommQueue()
+    {
+        bigGPUQueue = cl::CommandQueue(context, bigGPU) ;
+        smallGPUQueue = cl::CommandQueue(context, smallGPU) ;
+    }
+
+    void CLWrapper::prepareProgram(std::vector <std::string> files)
+    {
+        logger.log(LogLevel::INFO, "Creating program from files") ;
+        for (unsigned int i = 0; i < files.size(); i++) {
+            std::ifstream inf(files[i].c_str(), std::ifstream::in) ;
+            if (!inf.is_open()) {
+                logger.log(LogLevel::ERROR, "Could not open source file : " + files[i]) ;
+                throw(CLWrapperException("Could not open source file\n")) ;
+             }
+            buffer = buffer + "\n//" + files[i] + "\n";
+            buffer = buffer + std::string(std::istreambuf_iterator<char>(inf),
+                                          std::istreambuf_iterator<char>()) ;
+            logger.log(LogLevel::INFO, "Read source file " + files[i]) ;
+            inf.close() ;
+        }
+        
+        program =  cl::Program(context, buffer) ;
+        if (program.build({bigGPU, smallGPU}) != CL_SUCCESS) {
+            std::string bigGPUErrorLog = program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(bigGPU) ;
+            std::string smallGPUErrorLog = program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(smallGPU) ;
+            logger.log(LogLevel::ERROR, "Program object compilation error\nBigGPU:\n" +
+                       bigGPUErrorLog + "\nSmallGPU:\n" +
+                       smallGPUErrorLog) ;
+            throw CLWrapperException("Program object compilation error\nBigGPU:\n" +
+                       bigGPUErrorLog + "\nSmallGPU:\n" +
+                       smallGPUErrorLog) ;
+        }
+        logger.log(LogLevel::INFO, "Successfully compiled program ojects for both GPUs") ;
+    }
+
+    void CLWrapper::prepareProgram(std::string buffer)
+    {
+        logger.log(LogLevel::INFO, "Creating program from string") ;
+        program =  cl::Program(context, buffer) ;
+        if (program.build({bigGPU, smallGPU}) != CL_SUCCESS) {
+            std::string bigGPUErrorLog = program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(bigGPU) ;
+            std::string smallGPUErrorLog = program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(smallGPU) ;
+            logger.log(LogLevel::ERROR, "Program object compilation error\nBigGPU:\n" +
+                       bigGPUErrorLog + "\nSmallGPU:\n" +
+                       smallGPUErrorLog) ;
+            throw CLWrapperException("Program object compilation error\nBigGPU:\n" +
+                       bigGPUErrorLog + "\nSmallGPU:\n" +
+                       smallGPUErrorLog) ;
+        }
+        logger.log(LogLevel::INFO, "Successfully compiled program ojects for both GPUs") ;
+    }
+
+    template <typename T, cl_mem_flags F> CLBuffer<T, F> CLWrapper::getBigBuffer(void *hostPtr, size_t size)
+    {
+        logger.log(LogLevel::INFO, "Creating a buffer for big GPU of size: " + std::to_string(size)) ;
+        return CLBuffer<T, F>(context, bigGPUQueue, size, hostPtr) ;
+    }
+    
+    template <typename T, cl_mem_flags F> CLBuffer<T, F> CLWrapper::getSmallBuffer(void *hostPtr, size_t size)
+    {
+        logger.log(LogLevel::INFO, "Creating a buffer for small GPU of size: " + std::to_string(size)) ;
+        return CLBuffer<T, F>(context, smallGPUQueue, size, hostPtr) ;
+    }
+    
+    /*
+     * KernelExecutor funtion definitions:
+     * [1] KernelExecutor<x, y, z, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>::KernelExecutor(cl::Program program, std::string kernelName, cl::CommandQueue commQueue)
+     * [2] All () operator overloads
+     */
+    template <unsigned int x  , unsigned int y  , unsigned int z  ,
+              typename     T0 , typename     T1 , typename     T2 ,
+              typename     T3 , typename     T4 , typename     T5 ,
+              typename     T6 , typename     T7 , typename     T8 ,
+              typename     T9 >
+    KernelExecutor<x, y, z, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>::KernelExecutor(cl::Program program, std::string kernelName, cl::CommandQueue commQueue)
+    {
+        this->program = program ;
+        this->kernelName = kernelName ;
+        this->commQueue = commQueue ;
+    }
+    
+    template <unsigned int x  , unsigned int y  , unsigned int z  ,
+              typename     T0 , typename     T1 , typename     T2 ,
+              typename     T3 , typename     T4 , typename     T5 ,
+              typename     T6 , typename     T7 , typename     T8 ,
+              typename     T9 >
+    void KernelExecutor<x, y, z, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>::operator () (T0 arg0)
+    {
+        cl::NDRange xRange = (x==0? cl::NullRange : cl::NDRange(x)) ;
+        cl::NDRange yRange = (y==0? cl::NullRange : cl::NDRange(y)) ;
+        cl::NDRange zRange = (z==0? cl::NullRange : cl::NDRange(z)) ;
+        cl_int errNum ;
+        cl::make_kernel<T0> kernelExecutor(program, kernelName, &errNum) ;
+        if (errNum != CL_SUCCESS) {
+            throw CLWrapperException("Could not make kernel") ;
+        }
+        cl::EnqueueArgs eargs(commQueue, xRange, yRange, zRange) ;
+        kernelExecutor(eargs, arg0).wait() ;
+    }
+    
+    template <unsigned int x  , unsigned int y  , unsigned int z  ,
+              typename     T0 , typename     T1 , typename     T2 ,
+              typename     T3 , typename     T4 , typename     T5 ,
+              typename     T6 , typename     T7 , typename     T8 ,
+              typename     T9 >
+    void KernelExecutor<x, y, z, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>::operator () (T0 arg0, T1 arg1)
+    {
+        cl::NDRange xRange = (x==0? cl::NullRange : cl::NDRange(x)) ;
+        cl::NDRange yRange = (y==0? cl::NullRange : cl::NDRange(y)) ;
+        cl::NDRange zRange = (z==0? cl::NullRange : cl::NDRange(z)) ;
+        cl_int errNum ;
+        cl::make_kernel<T0, T1> kernelExecutor(program, kernelName, &errNum) ;
+        if (errNum != CL_SUCCESS) {
+            throw CLWrapperException("Could not make kernel") ;
+        }
+        cl::EnqueueArgs eargs(commQueue, xRange, yRange, zRange) ;
+        kernelExecutor(eargs, arg0, arg1).wait() ;
+    }
+    
+    template <unsigned int x  , unsigned int y  , unsigned int z  ,
+              typename     T0 , typename     T1 , typename     T2 ,
+              typename     T3 , typename     T4 , typename     T5 ,
+              typename     T6 , typename     T7 , typename     T8 ,
+              typename     T9 >
+    void KernelExecutor<x, y, z, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>::operator () (T0 arg0, T1 arg1, T2 arg2)
+    {
+        cl::NDRange xRange = (x==0? cl::NullRange : cl::NDRange(x)) ;
+        cl::NDRange yRange = (y==0? cl::NullRange : cl::NDRange(y)) ;
+        cl::NDRange zRange = (z==0? cl::NullRange : cl::NDRange(z)) ;
+        cl_int errNum ;
+        cl::make_kernel<T0, T1, T2> kernelExecutor(program, kernelName, &errNum) ;
+        if (errNum != CL_SUCCESS) {
+            throw CLWrapperException("Could not make kernel") ;
+        }
+        cl::EnqueueArgs eargs(commQueue, xRange, yRange, zRange) ;
+        kernelExecutor(eargs, arg0, arg1, arg2).wait() ;
+    }
+    
+    template <unsigned int x  , unsigned int y  , unsigned int z  ,
+              typename     T0 , typename     T1 , typename     T2 ,
+              typename     T3 , typename     T4 , typename     T5 ,
+              typename     T6 , typename     T7 , typename     T8 ,
+              typename     T9 >
+    void KernelExecutor<x, y, z, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>::operator () (T0 arg0, T1 arg1, T2 arg2, T3 arg3)
+    {
+        cl::NDRange xRange = (x==0? cl::NullRange : cl::NDRange(x)) ;
+        cl::NDRange yRange = (y==0? cl::NullRange : cl::NDRange(y)) ;
+        cl::NDRange zRange = (z==0? cl::NullRange : cl::NDRange(z)) ;
+        cl_int errNum ;
+        cl::make_kernel<T0, T1, T2, T3> kernelExecutor(program, kernelName, &errNum) ;
+        if (errNum != CL_SUCCESS) {
+            throw CLWrapperException("Could not make kernel") ;
+        }
+        cl::EnqueueArgs eargs(commQueue, xRange, yRange, zRange) ;
+        kernelExecutor(eargs, arg0, arg1, arg2, arg3).wait() ;
+    }
+    
+    template <unsigned int x  , unsigned int y  , unsigned int z  ,
+              typename     T0 , typename     T1 , typename     T2 ,
+              typename     T3 , typename     T4 , typename     T5 ,
+              typename     T6 , typename     T7 , typename     T8 ,
+              typename     T9 >
+    void KernelExecutor<x, y, z, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>::operator () (T0 arg0, T1 arg1, T2 arg2, T3 arg3, T4 arg4)
+    {
+        cl::NDRange xRange = (x==0? cl::NullRange : cl::NDRange(x)) ;
+        cl::NDRange yRange = (y==0? cl::NullRange : cl::NDRange(y)) ;
+        cl::NDRange zRange = (z==0? cl::NullRange : cl::NDRange(z)) ;
+        cl_int errNum ;
+        cl::make_kernel<T0, T1, T2, T3, T4> kernelExecutor(program, kernelName, &errNum) ;
+        if (errNum != CL_SUCCESS) {
+            throw CLWrapperException("Could not make kernel") ;
+        }
+        cl::EnqueueArgs eargs(commQueue, xRange, yRange, zRange) ;
+        kernelExecutor(eargs, arg0, arg1, arg2, arg3, arg4).wait() ;
+    }
+    
+    template <unsigned int x  , unsigned int y  , unsigned int z  ,
+              typename     T0 , typename     T1 , typename     T2 ,
+              typename     T3 , typename     T4 , typename     T5 ,
+              typename     T6 , typename     T7 , typename     T8 ,
+              typename     T9 >
+    void KernelExecutor<x, y, z, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>::operator () (T0 arg0, T1 arg1, T2 arg2, T3 arg3, T4 arg4, T5 arg5)
+    {
+        cl::NDRange xRange = (x==0? cl::NullRange : cl::NDRange(x)) ;
+        cl::NDRange yRange = (y==0? cl::NullRange : cl::NDRange(y)) ;
+        cl::NDRange zRange = (z==0? cl::NullRange : cl::NDRange(z)) ;
+        cl_int errNum ;
+        cl::make_kernel<T0, T1, T2, T3, T4, T5> kernelExecutor(program, kernelName, &errNum) ;
+        if (errNum != CL_SUCCESS) {
+            throw CLWrapperException("Could not make kernel") ;
+        }
+        cl::EnqueueArgs eargs(commQueue, xRange, yRange, zRange) ;
+        kernelExecutor(eargs, arg0, arg1, arg2, arg3, arg4, arg5).wait() ;
+    }
+    
+    template <unsigned int x  , unsigned int y  , unsigned int z  ,
+              typename     T0 , typename     T1 , typename     T2 ,
+              typename     T3 , typename     T4 , typename     T5 ,
+              typename     T6 , typename     T7 , typename     T8 ,
+              typename     T9 >
+    void KernelExecutor<x, y, z, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>::operator () (T0 arg0, T1 arg1, T2 arg2, T3 arg3, T4 arg4, T5 arg5, T6 arg6)
+    {
+        cl::NDRange xRange = (x==0? cl::NullRange : cl::NDRange(x)) ;
+        cl::NDRange yRange = (y==0? cl::NullRange : cl::NDRange(y)) ;
+        cl::NDRange zRange = (z==0? cl::NullRange : cl::NDRange(z)) ;
+        cl_int errNum ;
+        cl::make_kernel<T0, T1, T2, T3, T4, T5, T6> kernelExecutor(program, kernelName, &errNum) ;
+        if (errNum != CL_SUCCESS) {
+            throw CLWrapperException("Could not make kernel") ;
+        }
+        cl::EnqueueArgs eargs(commQueue, xRange, yRange, zRange) ;
+        kernelExecutor(eargs, arg0, arg1, arg2, arg3, arg4, arg5, arg6).wait() ;
+    }
+    
+    template <unsigned int x  , unsigned int y  , unsigned int z  ,
+              typename     T0 , typename     T1 , typename     T2 ,
+              typename     T3 , typename     T4 , typename     T5 ,
+              typename     T6 , typename     T7 , typename     T8 ,
+              typename     T9 >
+    void KernelExecutor<x, y, z, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>::operator () (T0 arg0, T1 arg1, T2 arg2, T3 arg3, T4 arg4, T5 arg5, T6 arg6, T7 arg7)
+    {
+        cl::NDRange xRange = (x==0? cl::NullRange : cl::NDRange(x)) ;
+        cl::NDRange yRange = (y==0? cl::NullRange : cl::NDRange(y)) ;
+        cl::NDRange zRange = (z==0? cl::NullRange : cl::NDRange(z)) ;
+        cl_int errNum ;
+        cl::make_kernel<T0, T1, T2, T3, T4, T5, T6, T7> kernelExecutor(program, kernelName, &errNum) ;
+        if (errNum != CL_SUCCESS) {
+            throw CLWrapperException("Could not make kernel") ;
+        }
+        cl::EnqueueArgs eargs(commQueue, xRange, yRange, zRange) ;
+        kernelExecutor(eargs, arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7).wait() ;
+    }
+    
+    template <unsigned int x  , unsigned int y  , unsigned int z  ,
+              typename     T0 , typename     T1 , typename     T2 ,
+              typename     T3 , typename     T4 , typename     T5 ,
+              typename     T6 , typename     T7 , typename     T8 ,
+              typename     T9 >
+    void KernelExecutor<x, y, z, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>::operator () (T0 arg0, T1 arg1, T2 arg2, T3 arg3, T4 arg4, T5 arg5, T6 arg6, T7 arg7, T8 arg8)
+    {
+        cl::NDRange xRange = (x==0? cl::NullRange : cl::NDRange(x)) ;
+        cl::NDRange yRange = (y==0? cl::NullRange : cl::NDRange(y)) ;
+        cl::NDRange zRange = (z==0? cl::NullRange : cl::NDRange(z)) ;
+        cl_int errNum ;
+        cl::make_kernel<T0, T1, T2, T3, T4, T5, T6, T7, T8> kernelExecutor(program, kernelName, &errNum) ;
+        if (errNum != CL_SUCCESS) {
+            throw CLWrapperException("Could not make kernel") ;
+        }
+        cl::EnqueueArgs eargs(commQueue, xRange, yRange, zRange) ;
+        kernelExecutor(eargs, arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8).wait() ;
+    }
+    
+    template <unsigned int x  , unsigned int y  , unsigned int z  ,
+              typename     T0 , typename     T1 , typename     T2 ,
+              typename     T3 , typename     T4 , typename     T5 ,
+              typename     T6 , typename     T7 , typename     T8 ,
+              typename     T9 >
+    void KernelExecutor<x, y, z, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>::operator () (T0 arg0, T1 arg1, T2 arg2, T3 arg3, T4 arg4, T5 arg5, T6 arg6, T7 arg7, T8 arg8, T9 arg9)
+    {
+        cl::NDRange xRange = (x==0? cl::NullRange : cl::NDRange(x)) ;
+        cl::NDRange yRange = (y==0? cl::NullRange : cl::NDRange(y)) ;
+        cl::NDRange zRange = (z==0? cl::NullRange : cl::NDRange(z)) ;
+        cl_int errNum ;
+        cl::make_kernel<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9> kernelExecutor(program, kernelName, &errNum) ;
+        if (errNum != CL_SUCCESS) {
+            throw CLWrapperException("Could not make kernel") ;
+        }
+        cl::EnqueueArgs eargs(commQueue, xRange, yRange, zRange) ;
+        kernelExecutor(eargs, arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9).wait() ;
+    }
+}
+#endif
