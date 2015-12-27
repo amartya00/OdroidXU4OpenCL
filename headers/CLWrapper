@@ -57,24 +57,22 @@ namespace OdroidXU4
             template <typename T, cl_mem_flags F> CLBuffer<T, F> getBigBuffer(void *, size_t) ;
             template <typename T, cl_mem_flags F> CLBuffer<T, F> getSmallBuffer(void *, size_t) ;
             
-            template <unsigned int x            , unsigned int y            , unsigned int z            ,
-                      typename     T0           , typename     T1 = NullType, typename     T2 = NullType,
+            template <typename     T0           , typename     T1 = NullType, typename     T2 = NullType,
                       typename     T3 = NullType, typename     T4 = NullType, typename     T5 = NullType,
                       typename     T6 = NullType, typename     T7 = NullType, typename     T8 = NullType,
                       typename     T9 = NullType> 
-            KernelExecutor<x, y, z, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9> getKernelExecutorBig(std::string kernelName)
+            KernelExecutor<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9> getKernelExecutorBig(std::string kernelName, cl::NDRange offset, cl::NDRange global, cl::NDRange local)
             {
-                return KernelExecutor<x, y, z, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>(program, kernelName, bigGPUQueue) ;
+                return KernelExecutor<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>(program, kernelName, bigGPUQueue, offset, global, local) ;
             }
             
-            template <unsigned int x            , unsigned int y            , unsigned int z            ,
-                      typename     T0           , typename     T1 = NullType, typename     T2 = NullType,
+            template <typename     T0           , typename     T1 = NullType, typename     T2 = NullType,
                       typename     T3 = NullType, typename     T4 = NullType, typename     T5 = NullType,
                       typename     T6 = NullType, typename     T7 = NullType, typename     T8 = NullType,
                       typename     T9 = NullType> 
-            KernelExecutor<x, y, z, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9> getKernelExecutorSmall(std::string kernelName)
+            KernelExecutor<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9> getKernelExecutorSmall(std::string kernelName, cl::NDRange offset, cl::NDRange global, cl::NDRange local)
             {
-                return KernelExecutor<x, y, z, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>(program, kernelName, smallGPUQueue) ;
+                return KernelExecutor<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>(program, kernelName, smallGPUQueue, offset, global, local) ;
             }
     } ;
 
@@ -170,6 +168,15 @@ namespace OdroidXU4
             smallGPU = allDevices[0] ;
         }
         logger.log(LogLevel::INFO, "Obtained both GPUs") ;
+        int nDimsBig = bigGPU.getInfo<CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS>() ;
+        int nDimsSmall = bigGPU.getInfo<CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS>() ;
+        std::vector<size_t> sizesBig = bigGPU.getInfo<CL_DEVICE_MAX_WORK_ITEM_SIZES>() ;
+        std::vector<size_t> sizesSmall = smallGPU.getInfo<CL_DEVICE_MAX_WORK_ITEM_SIZES>() ;
+        logger.log(LogLevel::INFO, "Max dimensions in big GPU: " + std::to_string(nDimsBig)) ;
+        logger.log(LogLevel::INFO, "Max dimensions in small GPU: " + std::to_string(nDimsSmall)) ;
+        logger.log(LogLevel::INFO, "Max WI sizes for big GPU: (" + std::to_string(sizesBig[0]) + " , " + std::to_string(sizesBig[0]) + " , " + std::to_string(sizesBig[0]) + ")") ;
+        logger.log(LogLevel::INFO, "Max WI sizes for small GPU: (" + std::to_string(sizesSmall[0]) + " , " + std::to_string(sizesSmall[0]) + " , " + std::to_string(sizesSmall[0]) + ")") ;
+
         context = cl::Context({bigGPU, smallGPU}) ;
     }
 
@@ -186,7 +193,7 @@ namespace OdroidXU4
             std::ifstream inf(files[i].c_str(), std::ifstream::in) ;
             if (!inf.is_open()) {
                 logger.log(LogLevel::ERROR, "Could not open source file : " + files[i]) ;
-                throw(CLWrapperException("Could not open source file\n")) ;
+                throw(CLWrapperException("Could not open source file " + files[i] + "\n")) ;
              }
             buffer = buffer + "\n//" + files[i] + "\n";
             buffer = buffer + std::string(std::istreambuf_iterator<char>(inf),

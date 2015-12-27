@@ -21,19 +21,21 @@ namespace OdroidXU4
     {
     };
     
-    template <unsigned int x            , unsigned int y            , unsigned int z            ,
-              typename     T0           , typename     T1 = NullType, typename     T2 = NullType,
-              typename     T3 = NullType, typename     T4 = NullType, typename     T5 = NullType,
-              typename     T6 = NullType, typename     T7 = NullType, typename     T8 = NullType,
-              typename     T9 = NullType>
+    template <typename T0           , typename T1 = NullType, typename T2 = NullType,
+              typename T3 = NullType, typename T4 = NullType, typename T5 = NullType,
+              typename T6 = NullType, typename T7 = NullType, typename T8 = NullType,
+              typename T9 = NullType>
     class KernelExecutor
     {
         private:
             cl::Program program ;
             std::string kernelName ;
             cl::CommandQueue commQueue ;
+            cl::NDRange offset ;
+            cl::NDRange local ;
+            cl::NDRange global ;
         public:
-            KernelExecutor(cl::Program, std::string, cl::CommandQueue) ;
+            KernelExecutor(cl::Program, std::string, cl::CommandQueue, cl::NDRange, cl::NDRange, cl::NDRange) ;
             void operator () (T0) ;
             void operator () (T0, T1) ;
             void operator () (T0, T1, T2) ;
@@ -52,205 +54,168 @@ namespace OdroidXU4
      * [1] KernelExecutor<x, y, z, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>::KernelExecutor(cl::Program program, std::string kernelName, cl::CommandQueue commQueue)
      * [2] All () operator overloads
      */
-    template <unsigned int x  , unsigned int y  , unsigned int z  ,
-              typename     T0 , typename     T1 , typename     T2 ,
-              typename     T3 , typename     T4 , typename     T5 ,
-              typename     T6 , typename     T7 , typename     T8 ,
-              typename     T9 >
-    KernelExecutor<x, y, z, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>::KernelExecutor(cl::Program program, std::string kernelName, cl::CommandQueue commQueue)
+    template <typename T0 , typename T1 , typename T2 ,
+              typename T3 , typename T4 , typename T5 ,
+              typename T6 , typename T7 , typename T8 ,
+              typename T9 >
+    KernelExecutor<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>::KernelExecutor(cl::Program program, std::string kernelName, cl::CommandQueue commQueue,
+                                                                                    cl::NDRange offset, cl::NDRange global, cl::NDRange local)
     {
         this->program = program ;
         this->kernelName = kernelName ;
         this->commQueue = commQueue ;
+        this->offset = offset ;
+        this->global = global ;
+        this->local = local ;
     }
     
-    template <unsigned int x  , unsigned int y  , unsigned int z  ,
-              typename     T0 , typename     T1 , typename     T2 ,
-              typename     T3 , typename     T4 , typename     T5 ,
-              typename     T6 , typename     T7 , typename     T8 ,
-              typename     T9 >
-    void KernelExecutor<x, y, z, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>::operator () (T0 arg0)
+    template <typename T0 , typename T1 , typename T2 ,
+              typename T3 , typename T4 , typename T5 ,
+              typename T6 , typename T7 , typename T8 ,
+              typename T9 >
+    void KernelExecutor<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>::operator () (T0 arg0)
     {
-        cl::NDRange xRange = (x==0? cl::NullRange : cl::NDRange(x)) ;
-        cl::NDRange yRange = (y==0? cl::NullRange : cl::NDRange(y)) ;
-        cl::NDRange zRange = (z==0? cl::NullRange : cl::NDRange(z)) ;
         cl_int errNum ;
         cl::make_kernel<T0> kernelExecutor(program, kernelName, &errNum) ;
         if (errNum != CL_SUCCESS) {
             throw CLWrapperException("Could not make kernel") ;
         }
-        cl::EnqueueArgs eargs(commQueue, xRange, yRange, zRange) ;
+        cl::EnqueueArgs eargs(commQueue, offset , global, local) ;
         kernelExecutor(eargs, arg0).wait() ;
     }
     
-    template <unsigned int x  , unsigned int y  , unsigned int z  ,
-              typename     T0 , typename     T1 , typename     T2 ,
-              typename     T3 , typename     T4 , typename     T5 ,
-              typename     T6 , typename     T7 , typename     T8 ,
-              typename     T9 >
-    void KernelExecutor<x, y, z, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>::operator () (T0 arg0, T1 arg1)
+    template <typename T0 , typename T1 , typename T2 ,
+              typename T3 , typename T4 , typename T5 ,
+              typename T6 , typename T7 , typename T8 ,
+              typename T9 >
+    void KernelExecutor<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>::operator () (T0 arg0, T1 arg1)
     {
-        cl::NDRange xRange = (x==0? cl::NullRange : cl::NDRange(x)) ;
-        cl::NDRange yRange = (y==0? cl::NullRange : cl::NDRange(y)) ;
-        cl::NDRange zRange = (z==0? cl::NullRange : cl::NDRange(z)) ;
         cl_int errNum ;
         cl::make_kernel<T0, T1> kernelExecutor(program, kernelName, &errNum) ;
         if (errNum != CL_SUCCESS) {
             throw CLWrapperException("Could not make kernel") ;
         }
-        cl::EnqueueArgs eargs(commQueue, xRange, yRange, zRange) ;
+        cl::EnqueueArgs eargs(commQueue, offset , global, local) ;
         kernelExecutor(eargs, arg0, arg1).wait() ;
     }
     
-    template <unsigned int x  , unsigned int y  , unsigned int z  ,
-              typename     T0 , typename     T1 , typename     T2 ,
-              typename     T3 , typename     T4 , typename     T5 ,
-              typename     T6 , typename     T7 , typename     T8 ,
-              typename     T9 >
-    void KernelExecutor<x, y, z, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>::operator () (T0 arg0, T1 arg1, T2 arg2)
+    template <typename T0 , typename T1 , typename T2 ,
+              typename T3 , typename T4 , typename T5 ,
+              typename T6 , typename T7 , typename T8 ,
+              typename T9 >
+    void KernelExecutor<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>::operator () (T0 arg0, T1 arg1, T2 arg2)
     {
-        cl::NDRange xRange = (x==0? cl::NullRange : cl::NDRange(x)) ;
-        cl::NDRange yRange = (y==0? cl::NullRange : cl::NDRange(y)) ;
-        cl::NDRange zRange = (z==0? cl::NullRange : cl::NDRange(z)) ;
         cl_int errNum ;
         cl::make_kernel<T0, T1, T2> kernelExecutor(program, kernelName, &errNum) ;
         if (errNum != CL_SUCCESS) {
             throw CLWrapperException("Could not make kernel") ;
         }
-        cl::EnqueueArgs eargs(commQueue, xRange, yRange, zRange) ;
+        cl::EnqueueArgs eargs(commQueue, offset , global, local) ;
         kernelExecutor(eargs, arg0, arg1, arg2).wait() ;
     }
     
-    template <unsigned int x  , unsigned int y  , unsigned int z  ,
-              typename     T0 , typename     T1 , typename     T2 ,
-              typename     T3 , typename     T4 , typename     T5 ,
-              typename     T6 , typename     T7 , typename     T8 ,
-              typename     T9 >
-    void KernelExecutor<x, y, z, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>::operator () (T0 arg0, T1 arg1, T2 arg2, T3 arg3)
+    template <typename T0 , typename T1 , typename T2 ,
+              typename T3 , typename T4 , typename T5 ,
+              typename T6 , typename T7 , typename T8 ,
+              typename T9 >
+    void KernelExecutor<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>::operator () (T0 arg0, T1 arg1, T2 arg2, T3 arg3)
     {
-        cl::NDRange xRange = (x==0? cl::NullRange : cl::NDRange(x)) ;
-        cl::NDRange yRange = (y==0? cl::NullRange : cl::NDRange(y)) ;
-        cl::NDRange zRange = (z==0? cl::NullRange : cl::NDRange(z)) ;
         cl_int errNum ;
         cl::make_kernel<T0, T1, T2, T3> kernelExecutor(program, kernelName, &errNum) ;
         if (errNum != CL_SUCCESS) {
             throw CLWrapperException("Could not make kernel") ;
         }
-        cl::EnqueueArgs eargs(commQueue, xRange, yRange, zRange) ;
+        cl::EnqueueArgs eargs(commQueue, offset , global, global) ;
         kernelExecutor(eargs, arg0, arg1, arg2, arg3).wait() ;
     }
     
-    template <unsigned int x  , unsigned int y  , unsigned int z  ,
-              typename     T0 , typename     T1 , typename     T2 ,
-              typename     T3 , typename     T4 , typename     T5 ,
-              typename     T6 , typename     T7 , typename     T8 ,
-              typename     T9 >
-    void KernelExecutor<x, y, z, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>::operator () (T0 arg0, T1 arg1, T2 arg2, T3 arg3, T4 arg4)
+    template <typename T0 , typename T1 , typename T2 ,
+              typename T3 , typename T4 , typename T5 ,
+              typename T6 , typename T7 , typename T8 ,
+              typename T9 >
+    void KernelExecutor<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>::operator () (T0 arg0, T1 arg1, T2 arg2, T3 arg3, T4 arg4)
     {
-        cl::NDRange xRange = (x==0? cl::NullRange : cl::NDRange(x)) ;
-        cl::NDRange yRange = (y==0? cl::NullRange : cl::NDRange(y)) ;
-        cl::NDRange zRange = (z==0? cl::NullRange : cl::NDRange(z)) ;
         cl_int errNum ;
         cl::make_kernel<T0, T1, T2, T3, T4> kernelExecutor(program, kernelName, &errNum) ;
         if (errNum != CL_SUCCESS) {
             throw CLWrapperException("Could not make kernel") ;
         }
-        cl::EnqueueArgs eargs(commQueue, xRange, yRange, zRange) ;
+        cl::EnqueueArgs eargs(commQueue, offset , global, local) ;
         kernelExecutor(eargs, arg0, arg1, arg2, arg3, arg4).wait() ;
     }
     
-    template <unsigned int x  , unsigned int y  , unsigned int z  ,
-              typename     T0 , typename     T1 , typename     T2 ,
-              typename     T3 , typename     T4 , typename     T5 ,
-              typename     T6 , typename     T7 , typename     T8 ,
-              typename     T9 >
-    void KernelExecutor<x, y, z, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>::operator () (T0 arg0, T1 arg1, T2 arg2, T3 arg3, T4 arg4, T5 arg5)
+    template <typename T0 , typename T1 , typename T2 ,
+              typename T3 , typename T4 , typename T5 ,
+              typename T6 , typename T7 , typename T8 ,
+              typename T9 >
+    void KernelExecutor<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>::operator () (T0 arg0, T1 arg1, T2 arg2, T3 arg3, T4 arg4, T5 arg5)
     {
-        cl::NDRange xRange = (x==0? cl::NullRange : cl::NDRange(x)) ;
-        cl::NDRange yRange = (y==0? cl::NullRange : cl::NDRange(y)) ;
-        cl::NDRange zRange = (z==0? cl::NullRange : cl::NDRange(z)) ;
         cl_int errNum ;
         cl::make_kernel<T0, T1, T2, T3, T4, T5> kernelExecutor(program, kernelName, &errNum) ;
         if (errNum != CL_SUCCESS) {
             throw CLWrapperException("Could not make kernel") ;
         }
-        cl::EnqueueArgs eargs(commQueue, xRange, yRange, zRange) ;
+        cl::EnqueueArgs eargs(commQueue, offset , global, local) ;
         kernelExecutor(eargs, arg0, arg1, arg2, arg3, arg4, arg5).wait() ;
     }
     
-    template <unsigned int x  , unsigned int y  , unsigned int z  ,
-              typename     T0 , typename     T1 , typename     T2 ,
-              typename     T3 , typename     T4 , typename     T5 ,
-              typename     T6 , typename     T7 , typename     T8 ,
-              typename     T9 >
-    void KernelExecutor<x, y, z, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>::operator () (T0 arg0, T1 arg1, T2 arg2, T3 arg3, T4 arg4, T5 arg5, T6 arg6)
+    template <typename T0 , typename T1 , typename T2 ,
+              typename T3 , typename T4 , typename T5 ,
+              typename T6 , typename T7 , typename T8 ,
+              typename T9 >
+    void KernelExecutor<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>::operator () (T0 arg0, T1 arg1, T2 arg2, T3 arg3, T4 arg4, T5 arg5, T6 arg6)
     {
-        cl::NDRange xRange = (x==0? cl::NullRange : cl::NDRange(x)) ;
-        cl::NDRange yRange = (y==0? cl::NullRange : cl::NDRange(y)) ;
-        cl::NDRange zRange = (z==0? cl::NullRange : cl::NDRange(z)) ;
         cl_int errNum ;
         cl::make_kernel<T0, T1, T2, T3, T4, T5, T6> kernelExecutor(program, kernelName, &errNum) ;
         if (errNum != CL_SUCCESS) {
             throw CLWrapperException("Could not make kernel") ;
         }
-        cl::EnqueueArgs eargs(commQueue, xRange, yRange, zRange) ;
+        cl::EnqueueArgs eargs(commQueue, offset , global, local) ;
         kernelExecutor(eargs, arg0, arg1, arg2, arg3, arg4, arg5, arg6).wait() ;
     }
     
-    template <unsigned int x  , unsigned int y  , unsigned int z  ,
-              typename     T0 , typename     T1 , typename     T2 ,
-              typename     T3 , typename     T4 , typename     T5 ,
-              typename     T6 , typename     T7 , typename     T8 ,
-              typename     T9 >
-    void KernelExecutor<x, y, z, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>::operator () (T0 arg0, T1 arg1, T2 arg2, T3 arg3, T4 arg4, T5 arg5, T6 arg6, T7 arg7)
+    template <typename T0 , typename T1 , typename T2 ,
+              typename T3 , typename T4 , typename T5 ,
+              typename T6 , typename T7 , typename T8 ,
+              typename T9 >
+    void KernelExecutor<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>::operator () (T0 arg0, T1 arg1, T2 arg2, T3 arg3, T4 arg4, T5 arg5, T6 arg6, T7 arg7)
     {
-        cl::NDRange xRange = (x==0? cl::NullRange : cl::NDRange(x)) ;
-        cl::NDRange yRange = (y==0? cl::NullRange : cl::NDRange(y)) ;
-        cl::NDRange zRange = (z==0? cl::NullRange : cl::NDRange(z)) ;
         cl_int errNum ;
         cl::make_kernel<T0, T1, T2, T3, T4, T5, T6, T7> kernelExecutor(program, kernelName, &errNum) ;
         if (errNum != CL_SUCCESS) {
             throw CLWrapperException("Could not make kernel") ;
         }
-        cl::EnqueueArgs eargs(commQueue, xRange, yRange, zRange) ;
+        cl::EnqueueArgs eargs(commQueue, offset , global, local) ;
         kernelExecutor(eargs, arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7).wait() ;
     }
     
-    template <unsigned int x  , unsigned int y  , unsigned int z  ,
-              typename     T0 , typename     T1 , typename     T2 ,
-              typename     T3 , typename     T4 , typename     T5 ,
-              typename     T6 , typename     T7 , typename     T8 ,
-              typename     T9 >
-    void KernelExecutor<x, y, z, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>::operator () (T0 arg0, T1 arg1, T2 arg2, T3 arg3, T4 arg4, T5 arg5, T6 arg6, T7 arg7, T8 arg8)
+    template <typename T0 , typename T1 , typename T2 ,
+              typename T3 , typename T4 , typename T5 ,
+              typename T6 , typename T7 , typename T8 ,
+              typename T9 >
+    void KernelExecutor<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>::operator () (T0 arg0, T1 arg1, T2 arg2, T3 arg3, T4 arg4, T5 arg5, T6 arg6, T7 arg7, T8 arg8)
     {
-        cl::NDRange xRange = (x==0? cl::NullRange : cl::NDRange(x)) ;
-        cl::NDRange yRange = (y==0? cl::NullRange : cl::NDRange(y)) ;
-        cl::NDRange zRange = (z==0? cl::NullRange : cl::NDRange(z)) ;
         cl_int errNum ;
         cl::make_kernel<T0, T1, T2, T3, T4, T5, T6, T7, T8> kernelExecutor(program, kernelName, &errNum) ;
         if (errNum != CL_SUCCESS) {
             throw CLWrapperException("Could not make kernel") ;
         }
-        cl::EnqueueArgs eargs(commQueue, xRange, yRange, zRange) ;
+        cl::EnqueueArgs eargs(commQueue, offset , global, local) ;
         kernelExecutor(eargs, arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8).wait() ;
     }
     
-    template <unsigned int x  , unsigned int y  , unsigned int z  ,
-              typename     T0 , typename     T1 , typename     T2 ,
-              typename     T3 , typename     T4 , typename     T5 ,
-              typename     T6 , typename     T7 , typename     T8 ,
-              typename     T9 >
-    void KernelExecutor<x, y, z, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>::operator () (T0 arg0, T1 arg1, T2 arg2, T3 arg3, T4 arg4, T5 arg5, T6 arg6, T7 arg7, T8 arg8, T9 arg9)
+    template <typename T0 , typename T1 , typename T2 ,
+              typename T3 , typename T4 , typename T5 ,
+              typename T6 , typename T7 , typename T8 ,
+              typename T9 >
+    void KernelExecutor<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>::operator () (T0 arg0, T1 arg1, T2 arg2, T3 arg3, T4 arg4, T5 arg5, T6 arg6, T7 arg7, T8 arg8, T9 arg9)
     {
-        cl::NDRange xRange = (x==0? cl::NullRange : cl::NDRange(x)) ;
-        cl::NDRange yRange = (y==0? cl::NullRange : cl::NDRange(y)) ;
-        cl::NDRange zRange = (z==0? cl::NullRange : cl::NDRange(z)) ;
         cl_int errNum ;
         cl::make_kernel<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9> kernelExecutor(program, kernelName, &errNum) ;
         if (errNum != CL_SUCCESS) {
             throw CLWrapperException("Could not make kernel") ;
         }
-        cl::EnqueueArgs eargs(commQueue, xRange, yRange, zRange) ;
+        cl::EnqueueArgs eargs(commQueue, offset , global, local) ;
         kernelExecutor(eargs, arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9).wait() ;
     }
 }
