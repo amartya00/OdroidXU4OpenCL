@@ -1,34 +1,17 @@
 /**
- * Main class
+ * Host program con 2D convolution
  */
 
 
 #include "CLWrapper"
+#include "Utils"
+
 #include <vector>
 #include <string>
 #include <cstdlib>
 #include <iostream>
 
 #define SIZE 10
-
-template <typename T> void display(T *matrix, size_t size)
-{
-	for (size_t i = 0; i < size; i++) {
-		for (size_t j = 0; j < size; j++) {
-			std::cout << matrix[(i * size) + j] << "\t" ;
-		}
-		std::cout << "\n" ;
-	}
-}
-
-template <typename T> T* getMatrix(size_t size, T val)
-{
-	T *matrix = new T[size * size] ;
-	for (size_t i = 0; i < size * size; i++) {
-		matrix[i] = (T)val ;
-	}
-	return matrix ;
-}
 
 int main()
 {
@@ -38,11 +21,11 @@ int main()
 
 
     // Prepare mem objects
-	float *input = getMatrix<float>(SIZE, 1) ;
-	float *output = getMatrix<float>(SIZE - 2, 0) ;
-	float kernel[] = {1,1,1,
-					  1,1,1,
-					  1,1,1} ;
+	float *input = MyUtils::getMatrix<float>(SIZE, SIZE, MyUtils::MemoryMode::FIXED, 1) ;
+	float *output = MyUtils::getMatrix<float>(SIZE - 2, SIZE - 2, MyUtils::MemoryMode::FIXED, 0) ;
+	float kernel[] = {1, 1, 1,
+					  1, 0, 1,
+					  1, 1, 1} ;
 
     try {
         C1.setup(files, logFile) ;
@@ -73,6 +56,6 @@ int main()
     
     // Flush input buffers and execute kernel and read output buffer
     
-    display<float>(output, SIZE - 2) ;
+    MyUtils::displayMatrix(output, SIZE - 2, SIZE - 2) ;
     return 0 ;
 }

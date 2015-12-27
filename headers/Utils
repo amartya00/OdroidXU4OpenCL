@@ -1,0 +1,60 @@
+// -*-c++-*-
+/**
+ * File     : KernelExecutor
+ * Contents : Contains class defs for KernelExecutor
+ */
+
+
+namespace MyUtils
+{
+    enum class MemoryMode { RANDOM, FIXED} ;
+
+    template <typename T> T* getVector(size_t size, MemoryMode mode, T value = (T)1)
+    {
+        T* array = new T[size] ;
+        if (mode == MemoryMode::RANDOM) {
+            for (size_t i = 0; i < size; i++) {
+                array[i] = (T) rand() ;    
+            }
+        } else {
+            for (size_t i = 0; i < size; i++) {
+                array[i] = (T)value ;    
+            }
+        }
+
+        return array ;
+    }
+
+
+    template <typename T> T* getMatrix(size_t nrows, size_t ncols, MemoryMode mode, T value = (T)1)
+    {
+        T *matrix = new T[nrows * ncols] ;
+        if (mode == MemoryMode::RANDOM) {
+            for (size_t i = 0; i < nrows * ncols; i++) {
+                matrix[i] = (T) rand() ;    
+            }
+        } else {
+            for (size_t i = 0; i < nrows * ncols; i++) {
+                matrix[i] = (T)value ;    
+            }
+        }
+        return matrix ;
+    }
+
+    template <typename T> void displayVector(T* vector, size_t size)
+    {
+        for (size_t i = 0; i < size; i++) {
+            std::cout << vector[i] << "\n" ;
+        }
+    }
+
+    template <typename T> void displayMatrix(T* matrix, size_t nrows, size_t ncols)
+    {
+        for (size_t i = 0; i < nrows; i++) {
+            for (size_t j = 0; j < ncols; j++) {
+                std::cout << matrix[ncols * i + j] << "\t" ;
+            }
+            std::cout << "\n" ;
+        }
+    }
+}
